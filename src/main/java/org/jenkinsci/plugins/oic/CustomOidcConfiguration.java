@@ -17,6 +17,8 @@ import org.pac4j.oidc.config.OidcConfiguration;
 /**
  * An OidcConfiguration that will customize {@link HttpRequest} with the Jenkins proxy, and iff TLS is disabled a lenient {@link HostnameVerifier} and {@link SSLContext}.
  */
+
+// 提供了自定义OIDC的 HTTP client的方法，可以配置代理， TLS等信息
 class CustomOidcConfiguration extends OidcConfiguration {
 
     private final boolean disableTLS;

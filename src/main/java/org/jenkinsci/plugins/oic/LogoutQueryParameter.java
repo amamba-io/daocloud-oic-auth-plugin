@@ -7,6 +7,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
+// 和login一样
 public class LogoutQueryParameter extends AbstractQueryParameter<LogoutQueryParameter> {
 
     @DataBoundConstructor
@@ -19,6 +20,7 @@ public class LogoutQueryParameter extends AbstractQueryParameter<LogoutQueryPara
 
         @POST
         @Override
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckKey(@QueryParameter String key) {
             return switch (key.trim()) {
                 case "id_token_hint", "state", "post_logout_redirect_uri" ->
@@ -29,6 +31,7 @@ public class LogoutQueryParameter extends AbstractQueryParameter<LogoutQueryPara
 
         @POST
         @Override
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckValue(String value) {
             return FormValidation.ok();
         }

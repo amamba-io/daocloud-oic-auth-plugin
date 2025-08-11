@@ -1,6 +1,7 @@
 clientId: "clientId"
 disableSslVerification: true
 emailFieldName: "emailFieldName"
+enableExternalAuth: false
 escapeHatchEnabled: true
 escapeHatchGroup: "escapeHatchGroup"
 escapeHatchUsername: "escapeHatchUsername"

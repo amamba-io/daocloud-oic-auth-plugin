@@ -7,9 +7,12 @@ import hudson.util.FormValidation.Kind;
 import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.stapler.QueryParameter;
 
+// 自定义验证逻辑的键值对，子类需要实现 checkKey 和 checkValue 方法
+// 不过目前看来实现的只有login和logout时的参数，用不到
 public abstract class AbstractKeyValueDescribable<T extends AbstractKeyValueDescribable<T>>
         extends AbstractDescribableImpl<T> {
 
+    @SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     private final String key;
     private final String value;
 

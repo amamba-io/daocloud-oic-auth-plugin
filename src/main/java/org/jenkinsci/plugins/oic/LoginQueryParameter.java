@@ -8,6 +8,7 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 import org.pac4j.oidc.config.OidcConfiguration;
 
+// 扩展了参数类，表示登录时用到的参数对，其实就是控制了一下login的时候，参数名称不能和oauth中的参数名重复
 public class LoginQueryParameter extends AbstractQueryParameter<LoginQueryParameter> {
 
     @DataBoundConstructor
@@ -20,6 +21,7 @@ public class LoginQueryParameter extends AbstractQueryParameter<LoginQueryParame
 
         @POST
         @Override
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckKey(@QueryParameter String key) {
             return switch (key.trim()) {
                 case OidcConfiguration.SCOPE,

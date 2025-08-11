@@ -32,19 +32,19 @@ class SecurityRealmConfigurationFIPSTest {
     void escapeHatchThrowsException() {
         assertThrows(
                 Descriptor.FormException.class,
-                () -> new OicSecurityRealm("clientId", null, null, null, null, null).setEscapeHatchEnabled(true));
+                () -> new OicSecurityRealm("clientId", null, false,null,null, null, null, null).setEscapeHatchEnabled(true));
     }
 
     @Test
     void escapeHatchToFalse() throws Exception {
-        OicSecurityRealm oicSecurityRealm = new OicSecurityRealm("clientId", null, null, null, null, null);
+        OicSecurityRealm oicSecurityRealm = new OicSecurityRealm("clientId", null,false,null, null, null, null, null);
         oicSecurityRealm.setEscapeHatchEnabled(false);
         assertThat(oicSecurityRealm.isEscapeHatchEnabled(), is(false));
     }
 
     @Test
     void readResolve() throws Exception {
-        OicSecurityRealm oicSecurityRealm = new OicSecurityRealm("clientId", null, null, null, null, null);
+        OicSecurityRealm oicSecurityRealm = new OicSecurityRealm("clientId", null,false,null, null, null, null, null);
         oicSecurityRealm.setEscapeHatchEnabled(false);
         assertThat(oicSecurityRealm.isEscapeHatchEnabled(), is(false));
         oicSecurityRealm.readResolve();

@@ -12,6 +12,7 @@ import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.StaplerRequest2;
 
+// 保存了openID 的凭据， token等信息，因为实现了UserProperty接口，最后的效果其实是把这些字段作为用户属性的一部分
 public class OicCredentials extends UserProperty implements Serializable {
     static final String PROPERTY_NAME = "oicCredentials";
 

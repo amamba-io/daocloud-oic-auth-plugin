@@ -59,11 +59,8 @@ import io.burt.jmespath.JmesPath;
 import io.burt.jmespath.RuntimeConfiguration;
 import io.burt.jmespath.jcf.JcfRuntime;
 import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -109,6 +106,7 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.Header;
+import org.kohsuke.stapler.verb.POST;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest2;
@@ -154,6 +152,7 @@ import org.springframework.util.Assert;
  * @author Michael Bischoff
  * @author Steve Arch
  */
+// 令牌认证，用户身份认证，回退机制
 public class OicSecurityRealm extends SecurityRealm implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -162,7 +161,10 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
     private IdStrategy groupIdStrategy;
 
     public static enum TokenAuthMethod {
+        // 带字段的枚举值
+        // 密钥通过basic auth传递
         client_secret_basic(ClientAuthenticationMethod.CLIENT_SECRET_BASIC),
+        // 通过post body传递
         client_secret_post(ClientAuthenticationMethod.CLIENT_SECRET_POST);
 
         private ClientAuthenticationMethod clientAuthMethod;
@@ -183,8 +185,20 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
     private final String clientId;
     private final Secret clientSecret;
 
+    private final Boolean enableExternalAuth;
+    private final String externalAuthServiceUrl;
+
+    public String getExternalAuthServiceUrl() {
+        return externalAuthServiceUrl;
+    }
+
+    public Boolean getEnableExternalAuth() {
+        return enableExternalAuth;
+    }
+
     /** @deprecated see {@link OicServerWellKnownConfiguration#getWellKnownOpenIDConfigurationUrl()} */
     @Deprecated
+    //  transient 这个关键字不会被序列化
     private transient String wellKnownOpenIDConfigurationUrl;
 
     /** @deprecated see {@link OicServerConfiguration#getTokenServerUrl()} */
@@ -209,8 +223,10 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
 
     private String userNameField = "sub";
     private transient Expression<Object> userNameFieldExpr = null;
+    @SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     private String tokenFieldToCheckKey = null;
     private transient Expression<Object> tokenFieldToCheckExpr = null;
+    @SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     private String tokenFieldToCheckValue = null;
     private String fullNameFieldName = null;
     private transient Expression<Object> fullNameFieldExpr = null;
@@ -331,6 +347,8 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
     public OicSecurityRealm(
             String clientId,
             Secret clientSecret,
+            Boolean enableExternalAuth,
+            String externalAuthServiceUrl,
             OicServerConfiguration serverConfiguration,
             Boolean disableSslVerification,
             IdStrategy userIdStrategy,
@@ -338,6 +356,8 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
             throws IOException, FormException {
         // Needed in DataBoundSetter
         this.disableSslVerification = Util.fixNull(disableSslVerification, Boolean.FALSE);
+        this.externalAuthServiceUrl = externalAuthServiceUrl;
+        this.enableExternalAuth =  Util.fixNull(enableExternalAuth, Boolean.FALSE);;
         if (FIPS140.useCompliantAlgorithms() && this.disableSslVerification) {
             throw new FormException(
                     Messages.OicSecurityRealm_DisableSslVerificationFipsMode(), "disableSslVerification");
@@ -764,7 +784,9 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
 
     @Restricted(NoExternalUse.class) // exposed for testing only
     protected OidcClient buildOidcClient() {
+        // 这个其实一直是在build第三方库的config
         OidcConfiguration oidcConfiguration = buildOidcConfiguration();
+        // 这个client也是第三方的
         OidcClient client = new OidcClient(oidcConfiguration);
         // add the extra settings for the client...
         client.setCallbackUrl(buildOAuthRedirectUrl());
@@ -863,6 +885,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
             // ensure escapeHatchSecret is BCrypt hash
             String escapeHatchString = Secret.toString(escapeHatchSecret);
 
+            // 密码加不加密都行
             final Pattern BCryptPattern = Pattern.compile("\\A\\$[^$]+\\$\\d+\\$[./0-9A-Za-z]{53}");
             if (!BCryptPattern.matcher(escapeHatchString).matches()) {
                 this.escapeHatchSecret = Secret.fromString(BCrypt.hashpw(escapeHatchString, BCrypt.gensalt()));
@@ -928,11 +951,14 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
     }
 
     @Override
+    //  把用户给重定向到oidc provider 这样来处理登录流程，会被映射到doCommenceLogin方法
+    // 认证的起点，将jenkins的登录请求引导到OIDC Provider
     public String getLoginUrl() {
         // Login begins with our doCommenceLogin(String,String) method
         return "securityRealm/commenceLogin";
     }
 
+    // 备用登录入口, 允许管理员使用备用凭证登录
     @Override
     public String getAuthenticationGatewayUrl() {
         return "securityRealm/escapeHatch";
@@ -940,17 +966,25 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
 
     @Override
     public Filter createFilter(FilterConfig filterConfig) {
-        return new ChainedServletFilter2(super.createFilter(filterConfig), new Filter() {
-            @Override
-            public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-                    throws IOException, ServletException {
+        // 这里的顺序不能随便改变
 
-                if (OicSecurityRealm.this.handleTokenExpiration(
-                        (HttpServletRequest) request, (HttpServletResponse) response)) {
-                    chain.doFilter(request, response);
-                }
+        List<Filter> filters = new ArrayList<>();
+        Filter defaultFilter = super.createFilter(filterConfig);
+        filters.add(defaultFilter);
+
+        if (Boolean.TRUE.equals(enableExternalAuth)) {
+            filters.add(new AuthorizationFilter());
+        }
+
+        Filter refreshTokenFilter = (request, response, chain) -> {
+            if (OicSecurityRealm.this.handleTokenExpiration(
+                    (HttpServletRequest) request, (HttpServletResponse) response)) {
+                chain.doFilter(request, response);
             }
-        });
+        };
+
+        filters.add(refreshTokenFilter);
+        return new ChainedServletFilter2(filters);
     }
 
     /*
@@ -960,6 +994,8 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
      * we create an {@link Authentication} only after we verified the user identity,
      * so {@link AuthenticationManager} becomes no-op.
      */
+    // 创建了一个逃生舱，相当于留了一个后门
+    // 当开启逃生舱时对用户进行验证，设置权限
     @Override
     public SecurityComponents createSecurityComponents() {
         return new SecurityComponents(new AuthenticationManager() {
@@ -976,6 +1012,8 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
                         if (isNotBlank(escapeHatchGroup)) {
                             grantedAuthorities.add(new SimpleGrantedAuthority(escapeHatchGroup));
                         }
+
+                        // 这里如果用 admin 用户的情况，其实一定会有 userDetails.
                         UsernamePasswordAuthenticationToken token =
                                 new UsernamePasswordAuthenticationToken(escapeHatchUsername, "", grantedAuthorities);
                         SecurityContextHolder.getContext().setAuthentication(token);
@@ -1025,7 +1063,12 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
      * @param referer the HTTP referer header (where to redirect the user back to after login has finished)
      * @throws URISyntaxException if the provided data is invalid
      */
+    // 开始登录，只能被stapler框架调用
+    // 实现的效果是从jenkins跳转到OIDC进行登录认证
+    // - form： 用户来源页面的url
+    // - Referer: 请求头中的来源
     @Restricted(DoNotUse.class) // stapler only
+    @SuppressWarnings({"lgtm[jenkins/csrf]","lgtm[jenkins/no-permission-check]"})
     public void doCommenceLogin(@QueryParameter String from, @Header("Referer") final String referer)
             throws URISyntaxException {
 
@@ -1033,16 +1076,23 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         // add the extra params for the client...
         final String redirectOnFinish = getValidRedirectUrl(from != null ? from : referer);
 
+        // 本质上还是调用的第三方sdk, 构建后用于跳转
         OidcRedirectionActionBuilder builder = new OidcRedirectionActionBuilder(client);
+        // 封装此次请求的req/res
         FrameworkParameters parameters =
                 new JEEFrameworkParameters(Stapler.getCurrentRequest2(), Stapler.getCurrentResponse2());
+        // 提供HTTP请求的抽象
         WebContext webContext = JEEContextFactory.INSTANCE.newContext(parameters);
+        // 用户管理用户会话数据
         SessionStore sessionStore = JEESessionStoreFactory.INSTANCE.newSessionStore(parameters);
+        // 调用上下文
         CallContext ctx = new CallContext(webContext, sessionStore);
+        // 构建重定向动作，生成跳转到OIDC提供者的重定向响应
         RedirectionAction redirectionAction = builder.getRedirectionAction(ctx).orElseThrow();
 
         // store the redirect url for after the login.
         sessionStore.set(webContext, SESSION_POST_LOGIN_REDIRECT_URL_KEY, redirectOnFinish);
+        // 执行重定向动作，将用户重定向到OIDC提供者进行认证
         JEEHttpActionAdapter.INSTANCE.adapt(redirectionAction, webContext);
         return;
     }
@@ -1055,6 +1105,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         }
     }
 
+    // 检查token是否有效，支持正则解析
     private boolean failedCheckOfTokenField(JWT idToken) throws ParseException {
         if (tokenFieldToCheckKey == null || tokenFieldToCheckValue == null) {
             return false;
@@ -1069,6 +1120,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         return !tokenFieldToCheckValue.equals(value);
     }
 
+    //  登录成功以后用户信息的设置和认证流程，建立用户会话
     private UsernamePasswordAuthenticationToken loginAndSetUserData(
             String userName, JWT idToken, Map<String, Object> userInfo, OicCredentials credentials)
             throws IOException, ParseException {
@@ -1087,6 +1139,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         UsernamePasswordAuthenticationToken token =
                 new UsernamePasswordAuthenticationToken(userName, "", grantedAuthorities);
 
+        // 将认证令牌设置到Spring安全上下文中，完成用户认证
         SecurityContextHolder.getContext().setAuthentication(token);
 
         User user = User.get2(token);
@@ -1094,6 +1147,8 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
             // should not happen
             throw new IOException("Cannot set OIDC property on anonymous user");
         }
+
+        // 后面都是在设置用户的属性。email， 全名等
         String email = determineStringField(emailFieldExpr, idToken, userInfo);
         if (email != null) {
             user.addProperty(new Mailer.UserProperty(email));
@@ -1117,9 +1172,11 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         }
         user.addProperty(oicAvatarProperty);
 
+        // 将OIDC凭据添加到用户属性中，用于后续的令牌刷新等操作
         user.addProperty(credentials);
 
         OicUserDetails userDetails = new OicUserDetails(userName, grantedAuthorities);
+        // 通知系统用户已认证和登录
         SecurityListener.fireAuthenticated2(userDetails);
         SecurityListener.fireLoggedIn(userName);
 
@@ -1251,7 +1308,9 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         }
     }
 
+    // 作用是在jenkins退出的同时从OIDC退出
     @Restricted(DoNotUse.class) // stapler only
+    @SuppressWarnings({"lgtm[jenkins/csrf]","lgtm[jenkins/no-permission-check]"})
     public void doLogout(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException, ServletException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User user = User.get2(authentication);
@@ -1383,6 +1442,8 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
      * @param request The user's request
      * @throws ParseException if the JWT (or other response) could not be parsed.
      */
+    // 处理登录回调
+    @SuppressWarnings({"lgtm[jenkins/csrf]","lgtm[jenkins/no-permission-check]"})
     public void doFinishLogin(StaplerRequest2 request, StaplerResponse2 response) throws IOException, ParseException {
         OidcClient client = buildOidcClient();
 
@@ -1397,6 +1458,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
             // Jenkins stuff correctly
             // also should have its own URL to make the code easier to follow :)
 
+            // 为什么要新建一个会话？
             if (!sessionStore.renewSession(webContext)) {
                 throw new TechnicalException("Could not create a new session");
             }
@@ -1433,6 +1495,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
 
             loginAndSetUserData(username, idToken, profile.getAttributes(), oicCredentials);
 
+            // 重定向回jenkins
             String redirectUrl = (String) sessionStore
                     .get(webContext, SESSION_POST_LOGIN_REDIRECT_URL_KEY)
                     .orElse(Jenkins.get().getRootUrl());
@@ -1465,15 +1528,27 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         if (isAllowTokenAccessWithoutOicSession()) {
             // check if this is a valid api token based request
             String authHeader = httpRequest.getHeader("Authorization");
+
             if (authHeader != null && authHeader.startsWith("Basic ")) {
-                String token = new String(Base64.getDecoder().decode(authHeader.substring(6)), StandardCharsets.UTF_8)
-                        .split(":")[1];
-                ApiTokenProperty apiTokenProperty = user.getProperty(ApiTokenProperty.class);
-                if (apiTokenProperty != null && apiTokenProperty.matchesPassword(token)) {
-                    // this was a valid jenkins token being used, exit this filter and let
-                    // the rest of chain be processed
-                    return true;
-                } // else do nothing and continue evaluating this request
+                String token = authHeader.replace("Basic ", "");
+                String[] split = org.apache.commons.lang3.StringUtils.split(token, ".");
+                if (split.length == 3) {
+                    // 说明是来自DCE的jwt
+                    String from = httpRequest.getHeader(OicConstants.CUSTOM_SOURCE_HEADER);
+                    if (from != null && from.equals(OicConstants.CUSTOM_SOURCE_HEADER_VALUE) && Boolean.TRUE.equals(enableExternalAuth)) {
+                        // 这里是DCE的token，直接返回true
+                        return true;
+                    }
+                } else {
+                    // jenkins的 token, user/pass 的token 是 base64("username:apitoken") 这样的形式
+                    String decodeToken = new String(Base64.getDecoder().decode(token), StandardCharsets.UTF_8).split(":")[1];
+                    ApiTokenProperty apiTokenProperty = user.getProperty(ApiTokenProperty.class);
+                    if (apiTokenProperty != null && apiTokenProperty.matchesPassword(decodeToken)) {
+                        // this was a valid jenkins token being used, exit this filter and let
+                        // the rest of chain be processed
+                        return true;
+                    } // else do nothing and continue evaluating this request
+                }
             }
         }
 
@@ -1517,6 +1592,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         return CLOCK.millis() >= credentials.getExpiresAtMillis();
     }
 
+    // 自动刷新过期的访问令牌,只针对OIDC登录后拿到的token
     private boolean refreshExpiredToken(
             String expectedUsername,
             OicCredentials credentials,
@@ -1633,6 +1709,8 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
             return Messages.OicSecurityRealm_DisplayName();
         }
 
+        // 这些check方法会在UI上输出时，实时的进行校验
+        // 这种验证方法通常命名为 doCheck + 字段名，是 Jenkins 的标准模式
         @RequirePOST
         public FormValidation doCheckClientId(@QueryParameter String clientId) {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
@@ -1648,6 +1726,24 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
             if (Util.fixEmptyAndTrim(clientSecret) == null) {
                 return FormValidation.error(Messages.OicSecurityRealm_ClientSecretRequired());
             }
+            return FormValidation.ok();
+        }
+
+        @RequirePOST
+        public FormValidation doCheckExternalAuthServiceUrl(@QueryParameter String externalAuthServiceUrl, @QueryParameter boolean enableExternalAuth) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            if (enableExternalAuth && Util.fixEmptyAndTrim(externalAuthServiceUrl) == null) {
+                return FormValidation.error(Messages.OicSecurityRealm_ExternalAuthServiceUrlRequired());
+            }
+            if (Util.fixEmptyAndTrim(externalAuthServiceUrl) != null) {
+                try {
+                    new URL(externalAuthServiceUrl);
+                    return FormValidation.ok();
+                } catch (MalformedURLException e) {
+                    return FormValidation.error(e, Messages.OicSecurityRealm_NotAValidURL());
+                }
+            }
+
             return FormValidation.ok();
         }
 
@@ -1688,11 +1784,13 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         }
 
         @RequirePOST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckTokenFieldToCheckKey(@QueryParameter String tokenFieldToCheckKey) {
             return this.doCheckFieldName(tokenFieldToCheckKey, FormValidation.ok());
         }
 
         @RequirePOST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckDisableSslVerification(@QueryParameter Boolean disableSslVerification) {
             if (FIPS140.useCompliantAlgorithms() && disableSslVerification) {
                 return FormValidation.error(Messages.OicSecurityRealm_DisableSslVerificationFipsMode());
@@ -1701,6 +1799,7 @@ public class OicSecurityRealm extends SecurityRealm implements Serializable {
         }
 
         @RequirePOST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckDisableTokenVerification(@QueryParameter Boolean disableTokenVerification) {
             if (FIPS140.useCompliantAlgorithms() && disableTokenVerification) {
                 return FormValidation.error(Messages.OicSecurityRealm_DisableTokenVerificationFipsMode());

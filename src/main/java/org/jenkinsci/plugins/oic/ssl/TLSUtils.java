@@ -16,6 +16,7 @@ public class TLSUtils {
     /**
      * Construct an {@link SSLSocketFactory} that trust all certificates using "TLS".
      */
+    @SuppressWarnings("lgtm[jenkins/unsafe-calls]")
     public static SSLSocketFactory createAnythingGoesSSLSocketFactory()
             throws KeyManagementException, NoSuchAlgorithmException {
         if (FIPS140.useCompliantAlgorithms()) {

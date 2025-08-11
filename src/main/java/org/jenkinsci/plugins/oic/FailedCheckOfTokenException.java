@@ -11,6 +11,8 @@ import org.kohsuke.stapler.StaplerResponse2;
  * Exception to be thrown when the received ID Token did not pass the expected check.
  * It offers a link to log out from the OpenID Connect provider.
  */
+
+// 校验失败重定向到错误的页面
 public class FailedCheckOfTokenException extends RuntimeException implements HttpResponse {
     @CheckForNull
     private final String idpLogoutUrl;

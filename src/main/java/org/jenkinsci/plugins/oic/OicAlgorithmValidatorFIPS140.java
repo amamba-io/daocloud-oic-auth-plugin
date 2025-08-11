@@ -22,6 +22,9 @@ import java.util.stream.Collectors;
  * This class helps in validating algorithms for FIPS-140 compliance and filtering the non-compliant algorithms when in
  * FIPS mode.
  */
+
+// 验证加密算法是否符合FIPS140这种标准（应该是jwt支持很多中加密算法，这里可以支持多种）
+// 对于比较严格的场景（政府）确保只使用符合要求的算法，满足加密合规
 public class OicAlgorithmValidatorFIPS140 {
 
     private static final Set<JWSAlgorithm> JWSSupportedAlgorithms = new LinkedHashSet<>();

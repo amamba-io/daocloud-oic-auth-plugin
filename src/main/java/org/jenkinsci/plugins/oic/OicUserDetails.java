@@ -6,10 +6,12 @@ import java.util.List;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+// 表示OIDC上下文中的用户
 public class OicUserDetails implements UserDetails {
     private static final long serialVersionUID = 1L;
 
     private final String userName;
+    // 表示分配给用户的权限
     private final List<GrantedAuthority> grantedAuthorities;
 
     public OicUserDetails(String userName, Collection<? extends GrantedAuthority> grantedAuthorities) {

@@ -1,7 +1,7 @@
-<!--
+/*
  * The MIT License
  *
- * Copyright (c) 2016  Michael Bischoff
+ * Copyright (c) 2021 Swisscom (Schweiz) AG, Dario Nuevo
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,8 +20,36 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- * -->
-<?jelly escape-by-default='true'?>
-<div>
-  Allows you to log in using an openid connect server and authenticate for DCE 5.
-</div>
+ */
+
+package org.jenkinsci.plugins.oic;
+
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+
+import java.util.Collection;
+
+public class JwtAuthAuthenticationToken extends AbstractAuthenticationToken {
+
+  private final String username;
+
+  public JwtAuthAuthenticationToken(String username, Collection<? extends GrantedAuthority> groups) {
+    super(groups);
+    this.username = username;
+  }
+
+  @Override
+  public Object getCredentials() {
+    return null;
+  }
+
+  @Override
+  public Object getPrincipal() {
+    return new JwtAuthUserDetails(username, getAuthorities());
+  }
+
+  @Override
+  public boolean isAuthenticated() {
+    return true;
+  }
+}

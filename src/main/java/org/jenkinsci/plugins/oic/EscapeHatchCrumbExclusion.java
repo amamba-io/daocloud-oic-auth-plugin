@@ -14,6 +14,8 @@ import java.io.IOException;
  *
  * @author Michael Bischoff
  */
+
+// 用于排除某些URL在CSRF保护之外
 @Extension
 public class EscapeHatchCrumbExclusion extends CrumbExclusion {
 
@@ -23,6 +25,7 @@ public class EscapeHatchCrumbExclusion extends CrumbExclusion {
         String pathInfo = request.getPathInfo();
         if ("/securityRealm/escapeHatch".equals(pathInfo)) {
             chain.doFilter(request, response);
+            // 表示请求已经处理，达到绕过此端点的CSRF
             return true;
         }
         return false;

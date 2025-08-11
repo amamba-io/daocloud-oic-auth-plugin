@@ -60,6 +60,7 @@ public class TestRealm extends OicSecurityRealm {
         public boolean disableTokenValidation = true; // opt in for some specific tests
         public IdStrategy userIdStrategy;
         public IdStrategy groupIdStrategy;
+        public boolean enableExternalAuth;
 
         public Builder(WireMockExtension wireMock, boolean useTLS) throws IOException {
             this(
@@ -210,6 +211,8 @@ public class TestRealm extends OicSecurityRealm {
         super(
                 builder.clientId,
                 builder.clientSecret,
+                builder.enableExternalAuth,
+                builder.authorizationServerUrl,
                 builder.buildServerConfiguration(),
                 builder.disableSslVerification,
                 builder.userIdStrategy,

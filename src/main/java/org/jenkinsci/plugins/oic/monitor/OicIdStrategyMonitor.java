@@ -17,6 +17,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @Extension
 @Restricted(NoExternalUse.class)
+// 作用是在jenkins的UI上显示警告信息，比如缺少了某个属性
 public class OicIdStrategyMonitor extends AdministrativeMonitor {
 
     // if null, means not evaluated yet

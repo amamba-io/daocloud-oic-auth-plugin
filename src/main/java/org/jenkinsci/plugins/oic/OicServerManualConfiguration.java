@@ -39,6 +39,7 @@ public class OicServerManualConfiguration extends OicServerConfiguration {
     private static final long serialVersionUID = 1L;
 
     private final String authorizationServerUrl;
+    @SuppressWarnings("lgtm[jenkins/plaintext-storage]")
     private final String tokenServerUrl;
     private TokenAuthMethod tokenAuthMethod = TokenAuthMethod.client_secret_post;
     private String jwksServerUrl;

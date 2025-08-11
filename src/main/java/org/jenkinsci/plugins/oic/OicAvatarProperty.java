@@ -6,6 +6,7 @@ import hudson.model.User;
 import hudson.model.UserProperty;
 import hudson.model.UserPropertyDescriptor;
 
+// 定义OIDC登录以后的用户头像，没什么特别的
 public class OicAvatarProperty extends UserProperty {
 
     private final AvatarImage avatarImage;

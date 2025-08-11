@@ -31,6 +31,8 @@ import hudson.model.UnprotectedRootAction;
  * This prevents a logout/login loop when using this security realm and Anonymous does not have {@code Overall.READ}
  * permission.
  */
+
+// 登出接口不需要进行登录验证
 @Extension
 public class OicLogoutAction implements UnprotectedRootAction {
 

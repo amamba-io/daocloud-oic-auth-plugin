@@ -7,6 +7,14 @@
     <f:password/>
   </f:entry>
 
+<!--  复选框，选中之后才会展示填写url的框  -->
+  <f:entry title="${%EnableExternalAuth}" field="enableExternalAuth">
+    <f:checkbox id="enableExternalAuth"/>
+  </f:entry>
+  <f:entry title="${%ExternalAuthServiceUrl}" field="externalAuthServiceUrl" class="externalAuthConfig">
+    <f:textbox/>
+  </f:entry>
+
   <st:adjunct includes="org.jenkinsci.plugins.oic.OicSecurityRealm.logout-idp-toggle" />
 
   <f:dropdownDescriptorSelector field="serverConfiguration" title="${%ConfigurationMode}" default="${descriptor.defaultServerConfigurationType}"/>

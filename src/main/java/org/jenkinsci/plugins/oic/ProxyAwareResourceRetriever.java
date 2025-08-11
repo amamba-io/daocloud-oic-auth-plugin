@@ -20,6 +20,7 @@ import org.pac4j.core.context.HttpConstants;
 /**
  * A {@link ResourceRetriever} that is configured with sane connection/timeout defaults and the Jenkins proxy.
  */
+// 工具类，适用于需要自定义代理或者TLS的环境
 class ProxyAwareResourceRetriever extends DefaultResourceRetriever {
 
     @SuppressWarnings("boxing")
@@ -48,6 +49,7 @@ class ProxyAwareResourceRetriever extends DefaultResourceRetriever {
     }
 
     @Override
+    @SuppressWarnings("lgtm[jenkins/unsafe-calls]")
     protected HttpURLConnection openHTTPConnection(URL url) throws IOException {
         @SuppressWarnings("deprecation")
         HttpURLConnection con = (HttpURLConnection) ProxyConfiguration.open(url);

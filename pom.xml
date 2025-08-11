@@ -4,16 +4,17 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>5.18</version>
+    <version>5.24</version>
     <relativePath />
   </parent>
 
-  <artifactId>oic-auth</artifactId>
+  <groupId>io.jenkins.plugins</groupId>
+  <artifactId>daocloud-oic-auth</artifactId>
   <version>${revision}.${changelist}</version>
   <packaging>hpi</packaging>
 
-  <name>OpenId Connect Authentication Plugin</name>
-  <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
+  <name>DaoCloud DCE5 platform OpenId Connect Authentication Plugin</name>
+  <url>https://github.com/amamba-io/${project.artifactId}-plugin</url>
 
   <licenses>
     <license>
@@ -21,18 +22,6 @@
       <url>https://opensource.org/licenses/MIT</url>
     </license>
   </licenses>
-  <developers>
-    <developer>
-      <id>mbischoff</id>
-      <name>Michael Bischoff</name>
-      <email>m.bischoff@controplex.com</email>
-    </developer>
-    <developer>
-      <id>agentgonzo</id>
-      <name>Steve Arch</name>
-      <email>sarch@cloudbees.com</email>
-    </developer>
-  </developers>
 
   <scm>
     <connection>scm:git:https://github.com/${gitHubRepo}.git</connection>
@@ -42,15 +31,17 @@
   </scm>
 
   <properties>
-    <revision>4</revision>
-    <changelist>999999-SNAPSHOT</changelist>
-    <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
+    <revision>1</revision>
+    <changelist>1-SNAPSHOT</changelist>
+    <gitHubRepo>amamba-io/${project.artifactId}-plugin</gitHubRepo>
     <jenkins.baseline>2.479</jenkins.baseline>
     <jenkins.version>${jenkins.baseline}.3</jenkins.version>
-    <spotless.check.skip>false</spotless.check.skip>
+    <spotless.check.skip>true</spotless.check.skip>
     <spotbugs.effort>Max</spotbugs.effort>
     <hpi.compatibleSinceVersion>4.383</hpi.compatibleSinceVersion>
     <pac4jVersion>6.1.3</pac4jVersion>
+    <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
+    <hpi.bundledArtifacts>content-type,jmespath-core,lang-tag,nimbus-jose-jwt,oauth2-oidc-sdk,pac4j-core,pac4j-jakartaee,pac4j-oidc</hpi.bundledArtifacts>
   </properties>
 
   <dependencyManagement>
@@ -58,7 +49,7 @@
       <dependency>
         <groupId>io.jenkins.tools.bom</groupId>
         <artifactId>bom-${jenkins.baseline}.x</artifactId>
-        <version>4228.v0a_71308d905b_</version>
+        <version>5054.v620b_5d2b_d5e6</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -221,12 +212,10 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>4.5.14</version>
-      <scope>test</scope>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>apache-httpcomponents-client-4-api</artifactId>
     </dependency>
-    <dependency>
+      <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
@@ -261,7 +250,6 @@
   <build>
     <pluginManagement>
       <plugins>
-        <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
         <plugin>
           <groupId>org.eclipse.m2e</groupId>
           <artifactId>lifecycle-mapping</artifactId>
@@ -270,15 +258,6 @@
             <lifecycleMappingMetadata>
               <pluginExecutions>
                 <pluginExecution>
-                  <pluginExecutionFilter>
-                    <!-- https://github.com/eclipse-m2e/m2e-core/issues/1291 -->
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-checkstyle-plugin</artifactId>
-                    <versionRange>[3.4.0,)</versionRange>
-                    <goals>
-                      <goal>check</goal>
-                    </goals>
-                  </pluginExecutionFilter>
                   <action>
                     <ignore />
                   </action>
@@ -295,32 +274,6 @@
         <version>3.1.1</version>
       </plugin>
       <plugin>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.6.0</version>
-        <configuration>
-          <configLocation>${maven.multiModuleProjectDirectory}/.mvn/checkstyle.xml</configLocation>
-          <suppressionsLocation>${maven.multiModuleProjectDirectory}/.mvn/checkstyle-suppressions.xml</suppressionsLocation>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <excludeGeneratedSources>true</excludeGeneratedSources>
-        </configuration>
-        <dependencies>
-          <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-            <version>10.26.1</version>
-          </dependency>
-        </dependencies>
-        <executions>
-          <execution>
-            <id>validate</id>
-            <goals>
-              <goal>check</goal>
-            </goals>
-            <phase>validate</phase>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.openrewrite.maven</groupId>
         <artifactId>rewrite-maven-plugin</artifactId>
         <version>6.13.0</version>
@@ -329,13 +282,6 @@
             <recipe>org.openrewrite.jenkins.github.AddTeamToCodeowners</recipe>
           </activeRecipes>
         </configuration>
-        <dependencies>
-          <dependency>
-            <groupId>org.openrewrite.recipe</groupId>
-            <artifactId>rewrite-jenkins</artifactId>
-            <version>0.28.0</version>
-          </dependency>
-        </dependencies>
       </plugin>
     </plugins>
   </build>
