@@ -1,0 +1,44 @@
+name: Build and Release Jenkins HPI Plugin
+
+on:
+  push:
+    tags:
+      - v[0-9]+\.[0-9]+\.[0-9]+
+      - v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+
+
+permissions:
+  packages: write
+  contents: write
+  discussions: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+
+      - name: Build HPI plugin
+        run: mvn clean package -DskipTests
+
+      - name: Upload HPI to Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          # should rename to release name
+          files: target/daocloud-oic-auth.hpi
