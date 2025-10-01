@@ -39,7 +39,7 @@
     <spotless.check.skip>true</spotless.check.skip>
     <spotbugs.effort>Max</spotbugs.effort>
     <hpi.compatibleSinceVersion>4.383</hpi.compatibleSinceVersion>
-    <pac4jVersion>6.1.3</pac4jVersion>
+    <pac4jVersion>6.2.2</pac4jVersion>
     <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
     <hpi.bundledArtifacts>content-type,jmespath-core,lang-tag,nimbus-jose-jwt,oauth2-oidc-sdk,pac4j-core,pac4j-jakartaee,pac4j-oidc</hpi.bundledArtifacts>
   </properties>
